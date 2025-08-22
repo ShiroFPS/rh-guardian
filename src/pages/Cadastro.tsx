@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,8 @@ import {
   Building
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useEmployees } from "@/hooks/useEmployees";
 
 interface FormData {
   name: string;
@@ -26,40 +27,15 @@ interface FormData {
   registration: string;
   position: string;
   department: string;
-  email: string;
-  phone: string;
-  address: string;
-  admissionDate: string;
-  salary: string;
-  observations: string;
+  hire_date: string;
+  status: 'active' | 'inactive';
+  documents: string[];
 }
-
-const departments = [
-  "Recursos Humanos",
-  "Tecnologia", 
-  "Comercial",
-  "Financeiro",
-  "Marketing",
-  "Operações",
-  "Jurídico",
-  "Administrativo"
-];
-
-const positions = [
-  "Estagiário",
-  "Assistente",
-  "Analista Junior",
-  "Analista Pleno",
-  "Analista Senior", 
-  "Coordenador",
-  "Supervisor",
-  "Gerente",
-  "Diretor"
-];
 
 const Cadastro = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, isHRManager, loading: authLoading } = useAuth();
+  const { createEmployee, positions, departments, loading: employeesLoading } = useEmployees();
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   
@@ -69,13 +45,16 @@ const Cadastro = () => {
     registration: "",
     position: "",
     department: "",
-    email: "",
-    phone: "",
-    address: "",
-    admissionDate: "",
-    salary: "",
-    observations: ""
+    hire_date: "",
+    status: 'active',
+    documents: []
   });
+
+  useEffect(() => {
+    if (!authLoading && (!user || !isHRManager)) {
+      navigate("/dashboard");
+    }
+  }, [user, isHRManager, authLoading, navigate]);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -84,11 +63,6 @@ const Cadastro = () => {
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, '');
     return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,13 +84,15 @@ const Cadastro = () => {
         throw new Error("Preencha todos os campos obrigatórios");
       }
 
-      // Simulação de cadastro - substituir pela integração com Supabase
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // TODO: Upload dos arquivos para o Supabase Storage
+      const documentUrls: string[] = [];
+      
+      const employeeData = {
+        ...formData,
+        documents: documentUrls,
+      };
 
-      toast({
-        title: "Funcionário cadastrado com sucesso!",
-        description: `${formData.name} foi adicionado ao sistema.`
-      });
+      await createEmployee(employeeData);
 
       // Reset form
       setFormData({
@@ -125,25 +101,36 @@ const Cadastro = () => {
         registration: "",
         position: "",
         department: "",
-        email: "",
-        phone: "",
-        address: "",
-        admissionDate: "",
-        salary: "",
-        observations: ""
+        hire_date: "",
+        status: 'active',
+        documents: []
       });
       setUploadedFiles([]);
       
+      // Navigate back to dashboard
+      navigate("/dashboard");
+      
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro no cadastro",
-        description: error instanceof Error ? error.message : "Erro desconhecido"
-      });
+      console.error("Erro no cadastro:", error);
     } finally {
       setLoading(false);
     }
   };
+  
+  if (authLoading || employeesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !isHRManager) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -188,7 +175,7 @@ const Cadastro = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome Completo *</Label>
                   <Input
@@ -211,39 +198,6 @@ const Cadastro = () => {
                     required
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="email@empresa.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", formatPhone(e.target.value))}
-                    placeholder="(00) 00000-0000"
-                    maxLength={15}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Endereço</Label>
-                <Textarea
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Endereço completo do funcionário"
-                  rows={2}
-                />
               </div>
             </CardContent>
           </Card>
@@ -273,12 +227,13 @@ const Cadastro = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="admissionDate">Data de Admissão</Label>
+                  <Label htmlFor="hire_date">Data de Admissão *</Label>
                   <Input
-                    id="admissionDate"
+                    id="hire_date"
                     type="date"
-                    value={formData.admissionDate}
-                    onChange={(e) => handleInputChange("admissionDate", e.target.value)}
+                    value={formData.hire_date}
+                    onChange={(e) => handleInputChange("hire_date", e.target.value)}
+                    required
                   />
                 </div>
 
@@ -293,10 +248,10 @@ const Cadastro = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {departments.map(dept => (
-                        <SelectItem key={dept} value={dept}>
+                        <SelectItem key={dept.id} value={dept.name}>
                           <div className="flex items-center gap-2">
                             <Building className="w-4 h-4" />
-                            {dept}
+                            {dept.name}
                           </div>
                         </SelectItem>
                       ))}
@@ -315,39 +270,16 @@ const Cadastro = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {positions.map(pos => (
-                        <SelectItem key={pos} value={pos}>
+                        <SelectItem key={pos.id} value={pos.title}>
                           <div className="flex items-center gap-2">
                             <IdCard className="w-4 h-4" />
-                            {pos}
+                            {pos.title}
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="salary">Salário (R$)</Label>
-                  <Input
-                    id="salary"
-                    value={formData.salary}
-                    onChange={(e) => handleInputChange("salary", e.target.value)}
-                    placeholder="5000.00"
-                    type="number"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="observations">Observações</Label>
-                <Textarea
-                  id="observations"
-                  value={formData.observations}
-                  onChange={(e) => handleInputChange("observations", e.target.value)}
-                  placeholder="Informações adicionais sobre o funcionário"
-                  rows={3}
-                />
               </div>
             </CardContent>
           </Card>

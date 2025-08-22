@@ -1,50 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Lock, User } from "lucide-react";
+import { Building2, Lock, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
-  const [loading, setLoading] = useState(false);
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signIn, user, loading } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    // Simulação de login - substituir pela integração com Supabase
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      if (credentials.username === "admin" && credentials.password === "admin") {
-        localStorage.setItem("rh-docs-user", JSON.stringify({ 
-          username: credentials.username, 
-          role: "admin",
-          name: "Administrador RH"
-        }));
-        toast({
-          title: "Login realizado com sucesso",
-          description: "Bem-vindo ao sistema RH-DOCS"
-        });
-        navigate("/dashboard");
-      } else {
-        throw new Error("Credenciais inválidas");
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro no login",
-        description: "Usuário ou senha incorretos"
-      });
-    } finally {
-      setLoading(false);
-    }
+    await signIn(credentials.email, credentials.password);
   };
 
   return (
@@ -72,17 +49,17 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium">
-                  Usuário
+                <Label htmlFor="email" className="text-sm font-medium">
+                  E-mail
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="username"
-                    type="text"
-                    placeholder="Digite seu usuário"
-                    value={credentials.username}
-                    onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                    id="email"
+                    type="email"
+                    placeholder="Digite seu e-mail"
+                    value={credentials.email}
+                    onChange={(e) => setCredentials(prev => ({ ...prev, email: e.target.value }))}
                     className="pl-10"
                     required
                   />
@@ -109,7 +86,7 @@ const Login = () => {
 
               <Alert className="bg-muted/50 border-muted">
                 <AlertDescription className="text-sm">
-                  <strong>Demo:</strong> Use "admin" como usuário e senha para testar o sistema
+                  <strong>Acesso:</strong> Entre em contato com o administrador do sistema para criar sua conta
                 </AlertDescription>
               </Alert>
 

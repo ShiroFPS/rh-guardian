@@ -14,77 +14,39 @@ import {
   Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-
-// Dados mockados de funcionários
-const mockEmployees = [
-  {
-    id: 1,
-    name: "Maria Silva Santos",
-    cpf: "123.456.789-00",
-    registration: "RH001",
-    position: "Gerente de Vendas",
-    department: "Comercial",
-    status: "Ativo",
-    documentsCount: 8
-  },
-  {
-    id: 2,
-    name: "João Pedro Oliveira",
-    cpf: "987.654.321-00", 
-    registration: "RH002",
-    position: "Desenvolvedor Senior",
-    department: "Tecnologia",
-    status: "Ativo",
-    documentsCount: 5
-  },
-  {
-    id: 3,
-    name: "Ana Costa Lima",
-    cpf: "456.789.123-00",
-    registration: "RH003", 
-    position: "Analista Financeiro",
-    department: "Financeiro",
-    status: "Férias",
-    documentsCount: 12
-  }
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useEmployees } from "@/hooks/useEmployees";
 
 const Dashboard = () => {
-  const [user, setUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredEmployees, setFilteredEmployees] = useState(mockEmployees);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, signOut, isHRManager, loading: authLoading } = useAuth();
+  const { employees, loading: employeesLoading, searchEmployees } = useEmployees();
+  
+  const filteredEmployees = searchEmployees(searchTerm);
 
   useEffect(() => {
-    const userData = localStorage.getItem("rh-docs-user");
-    if (!userData) {
+    if (!authLoading && !user) {
       navigate("/");
-      return;
     }
-    setUser(JSON.parse(userData));
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    const filtered = mockEmployees.filter(employee =>
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.cpf.includes(searchTerm) ||
-      employee.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.department.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredEmployees(filtered);
-  }, [searchTerm]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("rh-docs-user");
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!"
-    });
+  const handleLogout = async () => {
+    await signOut();
     navigate("/");
   };
 
+  if (authLoading || employeesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (!user) return null;
 
   return (
@@ -105,9 +67,11 @@ const Dashboard = () => {
 
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{user.name}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {user?.user_metadata?.name || user?.email}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {user.role === 'admin' ? 'Chefe do RH' : 'Funcionário'}
+                  {isHRManager ? 'Chefe do RH' : 'Funcionário'}
                 </p>
               </div>
               <Button 
@@ -132,7 +96,7 @@ const Dashboard = () => {
               <div className="flex items-center">
                 <Users className="w-8 h-8 text-primary" />
                 <div className="ml-4">
-                  <p className="text-2xl font-bold text-foreground">{mockEmployees.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{employees.length}</p>
                   <p className="text-sm text-muted-foreground">Funcionários</p>
                 </div>
               </div>
@@ -145,7 +109,7 @@ const Dashboard = () => {
                 <UserCheck className="w-8 h-8 text-success" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-foreground">
-                    {mockEmployees.filter(e => e.status === 'Ativo').length}
+                    {employees.filter(e => e.status === 'active').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Ativos</p>
                 </div>
@@ -159,9 +123,9 @@ const Dashboard = () => {
                 <Clock className="w-8 h-8 text-warning" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-foreground">
-                    {mockEmployees.filter(e => e.status === 'Férias').length}
+                    {employees.filter(e => e.status === 'inactive').length}
                   </p>
-                  <p className="text-sm text-muted-foreground">Em Férias</p>
+                  <p className="text-sm text-muted-foreground">Inativos</p>
                 </div>
               </div>
             </CardContent>
@@ -173,7 +137,7 @@ const Dashboard = () => {
                 <FileText className="w-8 h-8 text-accent" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-foreground">
-                    {mockEmployees.reduce((acc, emp) => acc + emp.documentsCount, 0)}
+                    {employees.reduce((acc, emp) => acc + (emp.documents?.length || 0), 0)}
                   </p>
                   <p className="text-sm text-muted-foreground">Documentos</p>
                 </div>
@@ -194,7 +158,7 @@ const Dashboard = () => {
             />
           </div>
 
-          {user.role === 'admin' && (
+          {isHRManager && (
             <Button 
               onClick={() => navigate("/cadastro")}
               className="gap-2 bg-gradient-to-r from-primary to-primary-hover hover:from-primary-hover hover:to-primary"
@@ -234,13 +198,13 @@ const Dashboard = () => {
                       
                       <div className="flex items-center gap-2">
                         <Badge 
-                          variant={employee.status === 'Ativo' ? 'default' : 'secondary'}
-                          className={employee.status === 'Ativo' ? 'bg-success hover:bg-success/80' : ''}
+                          variant={employee.status === 'active' ? 'default' : 'secondary'}
+                          className={employee.status === 'active' ? 'bg-success hover:bg-success/80' : ''}
                         >
-                          {employee.status}
+                          {employee.status === 'active' ? 'Ativo' : 'Inativo'}
                         </Badge>
                         <Badge variant="outline">
-                          {employee.documentsCount} docs
+                          {employee.documents?.length || 0} docs
                         </Badge>
                       </div>
                     </div>
@@ -250,7 +214,7 @@ const Dashboard = () => {
                     <Button variant="outline" size="sm">
                       Ver Perfil
                     </Button>
-                    {user.role === 'admin' && (
+                    {isHRManager && (
                       <Button variant="outline" size="sm">
                         Editar
                       </Button>
