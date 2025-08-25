@@ -14,7 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      departments: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          cpf: string
+          created_at: string
+          department: string
+          documents: string[] | null
+          hire_date: string
+          id: string
+          name: string
+          position: string
+          registration: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          department: string
+          documents?: string[] | null
+          hire_date: string
+          id?: string
+          name: string
+          position: string
+          registration: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          department?: string
+          documents?: string[] | null
+          hire_date?: string
+          id?: string
+          name?: string
+          position?: string
+          registration?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      positions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
